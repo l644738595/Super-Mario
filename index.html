@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>超级玛丽</title>
+<link href="css/style.css" rel="stylesheet" type="text/css">
+<script src="js/base.js"></script>
+<script src="js/js.js"></script>
+<script>
+window.onload = function(){
+	Game.loading();
+}
+</script>
+</head>
+
+<body>
+<div id="main">
+	<div id="text">
+		<div class="name"></div>
+		<div class="boo">©1985 NINTENDO</div>
+		<p class="explanation">Left: A Right: D<br>Jump: K Fire: J<br>START GAME:H</p>
+	</div>
+	<div id="notice">
+		<div class="world">WORLD<span>0</span></div>
+		<div class="life"><span class="s1"></span><span class="s2">×</span><span class="s2">3</span></div>
+	</div>
+</div>
+<audio autoplay loop>
+	<source src="Sounds/Themes/mp3/Overworld.mp3">
+	<source src="Sounds/Themes/ogg/Overworld.ogg">
+</audio> 
+</body>
+</html>
