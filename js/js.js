@@ -31,6 +31,10 @@ var Game = {
 			18: 'maptype-castleRock6'
 			
 		},
+		flag : {
+			style : 'flag',
+			score : 2000	
+		},
 		annexs : [ 
 			{},
 			{
@@ -394,7 +398,7 @@ var Game = {
 		marioSpeedY : 8,
 		jumpHigh : 128,
 		acceleratedSpeedX : .2,
-		player1 : {
+		bind : {
 			left : 65,
 			right : 68,
 			jump : 75,
@@ -434,9 +438,10 @@ var Game = {
 		this.gameWrap = $("main");
 		this.gameText = $("text");
 		this.gameNotice = $("notice")
-		this.gameOver = $("over");
+		this.over = $("over");
 		this.blood = 0;
 		this.gkNum = 1;
+		this.pause = false;
 		this.gameStart();
 	},
 	
@@ -493,17 +498,17 @@ var Game = {
 	
 	gameOver : function(){
 		var This = this;
-		this.gameOver.style.display = 'block';
+		this.over.style.display = 'block';
 		this.gameWrap.removeChild(this.gameMap);
 		this.gameWrap.removeChild(this.oDataDisplay);
 		setTimeout(function(){
-			This.gameOver.style.display = 'none';
+			This.over.style.display = 'none';
 			This.gameStart();
 		},5000)
 		
 	},
 	
-	showLives : function(){
+	showLives : function(){ //显示生命
 		this.blood = this.mario.life;
 		this.lives.innerHTML = this.blood;
 	},
@@ -525,12 +530,12 @@ var Game = {
 		
 		
 		this.level = this.gk["level_"+iNow];
-		this.world.innerHTML = iNow;
 		this.lengthBg = this.level.obstacles.length;
-		this.flagTop = null;
 		this.mapType = [];
 		this.flagpole = [];
+		this.flagTop = null;
 		this.blockhouse = null;
+		this.world.innerHTML = iNow;
 		var iW = 0,
 			arr = [],
 			oList,
@@ -549,6 +554,7 @@ var Game = {
 					oDiv.className = this.gk.type[piece[0]];
 					oDiv.type = parseInt(piece[0]);
 					oDiv.annexs = parseInt(piece[1] || 0);
+					oDiv.isCollide = false;
 					if(oDiv.type == 10){
 						this.blockhouse = oDiv;	
 					}else if(oDiv.type == 11){
@@ -595,10 +601,10 @@ var Game = {
 		var oFlag = document.createElement("div");
 		var T = this.getPos(this.flagTop,this.gameMap).t; //旗头的Y坐标
 		var L = this.getPos(this.flagTop,this.gameMap).l; //旗头的X坐标
-		oFlag.className = 'flag';
+		oFlag.className = this.gk.flag.style;
 		oFlag.style.top = T + 0.75 * this.gk.units + 'px'; 
 		oFlag.style.left = L - 0.5 * this.gk.units + 'px';
-		oFlag.score = 2000;
+		oFlag.score = this.gk.flag.score;
 		this.gameMap.appendChild(oFlag);
 		this.flag = oFlag;
 		this.setFlagpoleScore();
@@ -606,12 +612,10 @@ var Game = {
 	},
 	setFlagpoleScore : function(){ // 给旗竿设置分数
 		var iNow = this.flagpole.length + 1;
-		
 		var OneScore = this.flag.score/iNow;
 		for(var i=0; i<this.flagpole.length; i++){
 			this.flagpole[i].score = this.flag.score - OneScore*(i+1);
 		}
-		
 	},
 	
 	
@@ -635,12 +639,12 @@ var Game = {
 		oDiv.isCloaking = false; //隐身 每次变身缩小时 处于隐身状态
 		oDiv.isSendBullet = false; // 是否能发射子弹
 		this.gameMap.appendChild(oDiv);	
-		this.oPerson1 = oDiv;
+		this.player = oDiv;
 	},
 	
 	bindMario : function(){ //操作马里奥
 		this.key = []; //存储 键值
-		this.iLeftOldBg = 0; // 背景移动距离存值
+		this.iBgOldLeft = 0; // 背景移动距离存值
 		this.bulletNum = 0; // 子弹数量
 		var This = this;
 		var oBtn = true;  // 发射子弹的时候 每次按键只能发射一次
@@ -649,7 +653,7 @@ var Game = {
 		document.onkeydown = function(ev){
 			var ev = ev || window.event;
 			This.key[ev.keyCode] = true;
-			if(ev.keyCode == This.mario.player1.sendBullet){
+			if(ev.keyCode == This.mario.bind.sendBullet){
 				
 				This.createBullet(oBtn);
 				oBtn = false;
@@ -661,26 +665,28 @@ var Game = {
 			var ev = ev || window.event;
 			This.key[ev.keyCode] = false;
 			
-			if(ev.keyCode == This.mario.player1.sendBullet){
+			if(ev.keyCode == This.mario.bind.sendBullet){
 				oBtn = true;
-			}else if(ev.keyCode == This.mario.player1.jump){
+			}else if(ev.keyCode == This.mario.bind.jump){
 				jumpBtn = true;
 			}
+			return false;
 		};
-		this.interval();
+		this.frame();
 	},
-	interval : function(){
+	frame : function(){
 		var This = this;
-		clearInterval(this.oPerson1.timer)
-		this.oPerson1.timer = setInterval(function(){
+		clearInterval(this.player.timer)
+		this.player.timer = setInterval(function(){
+			if(This.pause) return;
 			This.change();
 			This.backgroundMove();
 			This.enemyShow();
 		},30);
 	},
 	change : function(){  // 马里奥移动和跳跃  iNum 操作第几个马里奥
-		var playerRect = this.oPerson1;
-		var player = this.mario.player1;
+		var playerRect = this.player;
+		var player = this.mario.bind;
 		var iWin = false;
 		var L,T;
 		// 左右移动 速度
@@ -811,7 +817,7 @@ var Game = {
 		
 		
 		if(T>this.gameWrap.clientHeight){
-			this.oPerson1.isCloaking = false;
+			this.player.isCloaking = false;
 			this.delMario();
 		}
 		if(T<playerRect.iT-this.mario.jumpHigh){
@@ -834,8 +840,8 @@ var Game = {
 			}
 		}
 		
-		if(L < Math.abs(this.iLeftOldBg)){
-			L = Math.abs(this.iLeftOldBg);
+		if(L < Math.abs(this.iBgOldLeft)){
+			L = Math.abs(this.iBgOldLeft);
 			playerRect.iSpeedX = 0;
 		}
 		
@@ -845,54 +851,93 @@ var Game = {
 	},
 	
 	backgroundMove : function(){  //背景移动
+		if(this.player.iSpeedX==0) return;
+		var iLeft =  (512-this.player.offsetWidth)/3 - this.player.offsetLeft;
+		if(this.iBgOldLeft < iLeft) return;
 		
-		var iLeft =  (512-this.oPerson1.offsetWidth)/2 - this.oPerson1.offsetLeft;
-		if(this.iLeftOldBg < iLeft) return;
 		if(iLeft > 0){
 			iLeft = 0;
 		}else if(iLeft < (1 - this.lengthBg) * 512){
 			iLeft = (1 - this.lengthBg) * 512;
 		}
+		
 		this.gameMap.style.left = iLeft  + 'px';
-		this.iLeftOldBg = iLeft;
+		this.iBgOldLeft = iLeft;
 		
 	},
 	
 	waneMario : function(){  // 变小
 		var This = this;
-		if(this.oPerson1.isSendBullet){
-			removeClass(this.oPerson1,this.mario.sendBulletStyle);
-			this.oPerson1.isSendBullet = false;
+		if(this.player.isSendBullet){
+			removeClass(this.player,this.mario.sendBulletStyle);
+			this.player.isSendBullet = false;
 		}
-		removeClass(this.oPerson1,this.mario.bigStyle);
-		this.oPerson1.isBig = false;
-		this.oPerson1.isCloaking = true;
+		removeClass(this.player,this.mario.bigStyle);
+		this.player.isBig = false;
+		this.player.isCloaking = true;
+		this.cloaking();
 		setTimeout(function(){
-			This.oPerson1.isCloaking = false;	
-		},2000)
+			This.player.isCloaking = false;	
+		},5000)
+	},
+	cloaking : function(){ // 闪
+		var This = this;
+		var timer = setInterval(function(){
+			if(!This.player.isCloaking) clearInterval(timer);
+			addClass(This.player,'cloaking');
+			setTimeout(function(){
+				removeClass(This.player,'cloaking');
+			},100);
+		},200)
+	},
+	pauseFn : function(){  //停止
+		var This = this;
+		this.pause = true;
+		setTimeout(function(){
+			This.pause = false;	
+		},1000)
 	},
 	
+	changeStyle : function(sClass){  //变身
+		this.pauseFn();
+		var This = this;
+		var T = this.player.offsetTop;
+		var H = this.player.offsetHeight;
+		var timer = setInterval(function(){
+			addClass(This.player,sClass);
+			This.player.style.top = T + H - This.player.offsetHeight + 'px';
+			if(!This.pause) {
+				clearInterval(timer);
+				return;
+			}
+			setTimeout(function(){
+				removeClass(This.player,sClass);
+				This.player.style.top = T + 'px'
+			},100);
+		},200)
+		
+	},
 	delMario : function(){  // 马里奥死亡
 		
-		if(this.oPerson1.isCloaking) return;
-		if(this.oPerson1.isBig){
-			if(this.oPerson1.isSendBullet){
-				removeClass(this.oPerson1,this.mario.sendBulletStyle);
+		if(this.player.isCloaking) return;
+		if(this.player.isBig){
+			if(this.player.isSendBullet){
+				removeClass(this.player,this.mario.sendBulletStyle);
 			}
-			removeClass(this.oPerson1,this.mario.bigStyle);
+			removeClass(this.player,this.mario.bigStyle);
 		}
-		var T = this.oPerson1.offsetTop;
+		var T = this.player.offsetTop;
 		var This = this;
-		clearInterval(this.oPerson1.timer);
+		clearInterval(this.player.timer);
 		clearInterval(this.timeTimer);
 		for(var i=0; i<this.aEnemy.length; i++){
 			clearInterval(this.aEnemy[i].timer);
 		}
-		addClass(this.oPerson1,this.mario.dieStyle);
+		addClass(this.player,this.mario.dieStyle);
 		this.lives.innerHTML = --this.blood;
 		setTimeout(function(){
-			startMoveTime(This.oPerson1,{top: T - 4*This.gk.units},'easeOut',function(){
-				startMoveTime(This.oPerson1,{top: This.gameMap.offsetHeight},'easeIn',function(){
+			startMoveTime(This.player,{top: T - 4*This.gk.units},'easeOut',function(){
+				startMoveTime(This.player,{top: This.gameMap.offsetHeight},'easeIn',function(){
 					setTimeout(function(){
 						This.redraw();	
 					},1000);
@@ -906,22 +951,22 @@ var Game = {
 	
 	winMario : function(){ // 赢了
 		var This = this;
-		clearInterval(this.oPerson1.timer);
+		clearInterval(this.player.timer);
 		clearInterval(this.timeTimer);
 		this.showPoleScore();
-		if(this.oPerson1.direction == -1){
-			removeClass(this.oPerson1,'personLU');
-			removeClass(this.oPerson1,'personLM');
-			addClass(this.oPerson1,'personRM');
+		if(this.player.direction == -1){
+			removeClass(this.player,'personLU');
+			removeClass(this.player,'personLM');
+			addClass(this.player,'personRM');
 		}
-		removeClass(this.oPerson1,'personRU');
-		addClass(this.oPerson1,This.mario.supportRStyle);
-		this.oPerson1.style.left = this.getPos(this.oPerson1,this.gameMap).l + 0.75 * this.gk.units + 'px';
+		removeClass(this.player,'personRU');
+		addClass(this.player,This.mario.supportRStyle);
+		this.player.style.left = this.getPos(this.player,this.gameMap).l + 0.75 * this.gk.units + 'px';
 		this.slidePole(this.flag);
-		this.slidePole(this.oPerson1,function(){
-			removeClass(This.oPerson1,This.mario.supportRStyle);
-			This.oPerson1.style.left = This.getPos(This.oPerson1,This.gameMap).l + 0.5 * This.gk.units + 'px';
-			addClass(This.oPerson1,This.mario.supportLStyle);
+		this.slidePole(this.player,function(){
+			removeClass(This.player,This.mario.supportRStyle);
+			This.player.style.left = This.getPos(This.player,This.gameMap).l + 0.5 * This.gk.units + 'px';
+			addClass(This.player,This.mario.supportLStyle);
 			setTimeout(function(){
 				This.moveToHouse();	
 			},100)
@@ -947,26 +992,39 @@ var Game = {
 				if(playerRect.isBig){
 					this.macadam(spriteRect);
 				}else{
-					startMoveTime(spriteRect,{top: T - 0.5 * this.gk.units},100,function(){
-						startMoveTime(spriteRect,{top: T},100)
-					});
+					if(!spriteRect.isCollide){
+						spriteRect.isCollide = true;
+						startMoveTime(spriteRect,{top: T - 0.5 * this.gk.units},100,function(){
+							startMoveTime(spriteRect,{top: T},100,function(){
+								spriteRect.isCollide = false;	
+							})
+						});
+					}
 				}
 				this.topHeadEnemy(spriteRect,playerRect.direction);
 			break;
 			case 1 :
-				startMoveTime(spriteRect,{top: T - 0.5 * this.gk.units},100,function(){
-					startMoveTime(spriteRect,{top: T},100,function(){
-						This.flyGold(spriteRect);
+				if(!spriteRect.isCollide){
+					spriteRect.isCollide = true;
+					startMoveTime(spriteRect,{top: T - 0.5 * this.gk.units},100,function(){
+						startMoveTime(spriteRect,{top: T},100,function(){
+							This.flyGold(spriteRect);
+							spriteRect.isCollide = false;	
+						})
 					})
-				})
+				}
 				this.topHeadEnemy(spriteRect,playerRect.direction);
 			break;	
 			case 2 :
-				startMoveTime(spriteRect,{top: T - 0.5 * this.gk.units},100,function(){
-					startMoveTime(spriteRect,{top: T},100,function(){
-						This.createAnnexs(spriteRect,playerRect);	
-					})
-				});
+				if(!spriteRect.isCollide){
+					spriteRect.isCollide = true;
+					startMoveTime(spriteRect,{top: T - 0.5 * this.gk.units},100,function(){
+						startMoveTime(spriteRect,{top: T},100,function(){
+							This.createAnnexs(spriteRect,playerRect);
+							spriteRect.isCollide = false;		
+						})
+					});
+				}
 				this.topHeadEnemy(spriteRect,playerRect.direction);
 			break;
 			case 4 :
@@ -978,30 +1036,30 @@ var Game = {
 		
 	},
 	createBullet : function(oBtn){  // 创建子弹
-		if(!this.oPerson1.isSendBullet || this.bulletNum == 2 || !oBtn)  return;  //this.bulletNum限制子弹数量 最多2个
+		if(!this.player.isSendBullet || this.bulletNum == 2 || !oBtn)  return;  //this.bulletNum限制子弹数量 最多2个
 		var This = this;
-		var style = this.oPerson1.direction > 0 ? this.mario.rightFStyle : this.mario.leftFStyle;
-		addClass(this.oPerson1,style);
+		var style = this.player.direction > 0 ? this.mario.rightFStyle : this.mario.leftFStyle;
+		addClass(this.player,style);
 		setTimeout(function(){
-			removeClass(This.oPerson1,style);
+			removeClass(This.player,style);
 		},100)
 		this.bulletNum ++;
 		var oBullet = document.createElement('div');
 		oBullet.className = this.mario.bullet.style;
 		this.gameMap.appendChild(oBullet);
-		oBullet.style.left = (this.oPerson1.direction > 0 ? this.getPos(this.oPerson1,this.gameMap).l + this.oPerson1.offsetWidth : this.getPos(this.oPerson1,this.gameMap).l) - oBullet.offsetWidth + 'px';
-		oBullet.style.top = this.getPos(this.oPerson1,this.gameMap).t + (this.oPerson1.offsetHeight - oBullet.offsetHeight)/2 + 'px';
+		oBullet.style.left = (this.player.direction > 0 ? this.getPos(this.player,this.gameMap).l + this.player.offsetWidth : this.getPos(this.player,this.gameMap).l) - oBullet.offsetWidth + 'px';
+		oBullet.style.top = this.getPos(this.player,this.gameMap).t + (this.player.offsetHeight - oBullet.offsetHeight)/2 + 'px';
 		this.moveBullet(oBullet);
 	},
 	
 	moveBullet : function(obj){ // 子弹飞
-		var speedX = this.mario.bullet.speed * this.oPerson1.direction * 2;
+		var speedX = this.mario.bullet.speed * this.player.direction * 2;
 		var speedY = this.mario.bullet.speed;
 		var iT = 0;
 		var This = this;
 		clearInterval(obj.timer);
 		obj.timer = setInterval(function(){
-			
+			if(This.pause) return;
 			var T = obj.offsetTop + speedY;
 			var L = obj.offsetLeft + speedX;
 			
@@ -1231,8 +1289,9 @@ var Game = {
 	parabolicMotion : function(obj,iSpeedX,iSpeedY){  //抛物线运动
 		clearInterval(obj.timer);
 		var iH = this.gameMap.offsetHeight;
+		var This = this;
 		obj.timer = setInterval(function(){
-			
+			if(This.pause) return;
 			iSpeedY += 3;
 			var T = obj.offsetTop + iSpeedY;
 			var L = obj.offsetLeft + iSpeedX;
@@ -1305,8 +1364,7 @@ var Game = {
 		var This = this;
 		var L,T;
 		obj.timer = setInterval(function(){
-			
-			if(!obj.isMove){
+			if(!obj.isMove||This.pause){
 				return;
 			};//进入可视区的时候移动 增加性能
 			
@@ -1347,42 +1405,44 @@ var Game = {
 			
 			if(obj.isEnemy){ 
 				if(!obj.die){  
-					switch(This.pzDir(This.oPerson1,obj)){ // 做为敌人  与马里奥碰撞
+					switch(This.pzDir(This.player,obj)){ // 做为敌人  与马里奥碰撞
 						case 'left':
 						case 'right':
 						case 'bottom':
 						case 'bottomLeft':
 						case 'bottomRight':
-							if(This.oPerson1.isBig){
+							if(This.player.isBig){
 								This.waneMario();
 							}else{
 								This.delMario();
 							}
 						break;
 						case 'top':
-							This.oPerson1.trampleEnemy = true;
-							This.oPerson1.iT = obj.offsetTop - This.oPerson1.offsetHeight;
+							This.player.trampleEnemy = true;
+							This.player.iT = obj.offsetTop - This.player.offsetHeight;
 							This.delOneEnemy(obj);
 						break;
 					}
 				}
 			}else{  // 做为附属物  与马里奥碰撞
-				if(This.pz(This.oPerson1,obj)){
+				if(This.pz(This.player,obj)){
 					clearInterval(obj.timer);
 					This.scoreShow(obj);
 					This.gameMap.removeChild(obj);
 					if(obj.className == This.gk.annexs[2].style){
-						addClass(This.oPerson1,This.mario[obj.effect]);
-						if(This.oPerson1.iT == This.oPerson1.offsetTop){
-							This.oPerson1.style.top = This.oPerson1.offsetTop - This.oPerson1.offsetHeight/2 + 'px';
+						if(!This.player.isBig){
+							This.changeStyle(This.mario[obj.effect]);
+							
+							This.player.isBig = true;
 						}
-						This.oPerson1.isBig = true;
 					}else if(obj.className == This.gk.annexs[3].style){
-						addClass(This.oPerson1,This.mario[obj.effect]);
-						if(!This.oPerson1.isBig){
-							This.oPerson1.isBig = true;
-						}else{
-							This.oPerson1.isSendBullet = true;	
+						if(!This.player.isSendBullet){
+							This.changeStyle(This.mario[obj.effect]);
+							if(!This.player.isBig){
+								This.player.isBig = true;
+							}else{
+								This.player.isSendBullet = true;	
+							}
 						}
 					}else if(obj.className == This.gk.annexs[4].style){
 						This.lives.innerHTML = ++This.blood;
@@ -1398,9 +1458,9 @@ var Game = {
 	},
 	
 	
-	showPoleScore : function(){
+	showPoleScore : function(){ // 碰撞旗杆 展现相应分数
 		
-		var T = this.getPos(this.oPerson1,this.gameMap).t;
+		var T = this.getPos(this.player,this.gameMap).t;
 		var L ;
 		var iNow = this.flagpole.length - 1;
 		var oSpan = document.createElement("span");
@@ -1417,8 +1477,6 @@ var Game = {
 		oSpan.style.left = L + 'px';
 		oSpan.innerHTML = this.flagpole[iNow].score;
 		this.score.innerHTML = parseInt(this.score.innerHTML) + this.flagpole[iNow].score;
-		
-		
 		this.gameMap.appendChild(oSpan);
 		startMoveTime(oSpan,{top: this.flagpole[0].offsetTop});
 		
@@ -1429,7 +1487,7 @@ var Game = {
 	slidePole : function(obj,fn){  //滑竿 
 	
 		var flagBottom = this.flagpole[this.flagpole.length - 1];
-		var T = this.getPos(flagBottom,this.gameMap).t + flagBottom.offsetHeight - obj.offsetHeight;
+		var T = this.getPos(flagBottom,this.gameMap).t + flagBottom.offsetHeight - this.player.offsetHeight;
 		if(T < obj.offsetTop ){
 			obj.style.top = T + 'px';	
 		}
@@ -1439,14 +1497,14 @@ var Game = {
 	
 	moveToHouse : function(){ // 移动到城堡
 	
-		var T = this.getPos(this.blockhouse,this.gameMap).t	 + this.blockhouse.offsetHeight - this.oPerson1.offsetHeight;
+		var T = this.getPos(this.blockhouse,this.gameMap).t	 + this.blockhouse.offsetHeight - this.player.offsetHeight;
 		var L = this.getPos(this.blockhouse,this.gameMap).l;
 		var This = this;
-		this.oPerson1.style.top = T + 'px';
-		this.oPerson1.style.left = this.oPerson1.offsetLeft + 0.75 * this.gk.units + 'px';
-		removeClass(this.oPerson1,This.mario.supportLStyle);
-		startMoveTime(this.oPerson1,{left:L},2000,function(){
-			This.oPerson1.style.display = 'none';
+		this.player.style.top = T + 'px';
+		this.player.style.left = this.player.offsetLeft + 0.75 * this.gk.units + 'px';
+		removeClass(this.player,This.mario.supportLStyle);
+		startMoveTime(this.player,{left:L},2000,function(){
+			This.player.style.display = 'none';
 			This.timeToScore();	
 		});
 		
